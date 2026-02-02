@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
-use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Closure;
 
 class isUserAuth
 {
@@ -15,6 +15,11 @@ class isUserAuth
      */
     public function handle(Request $request, Closure $next): Response
     {
-        return $next($request);
+        //si un usuario esta autenticado se aceptan las peticiones si no se rechazan
+        if (auth('api')->user()) {
+            return $next($request);
+        } else {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
     }
 }

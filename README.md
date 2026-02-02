@@ -194,3 +194,34 @@ class AuthController extends Controller
     }
 }
 ```
+
+luego se modica el middleware de /app/http/middleware/isUserAuth.php asi.
+
+y se aplica lo siguiente:
+
+```bash
+public function handle(Request $request, Closure $next): Response
+    {
+        //si un usuario esta autenticado se aceptan las peticiones si no se rechazan
+        if (auth('api')->user()) {
+            return $next($request);
+        } else {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+    }
+```
+
+y en isUserAdmin se valida si el usuario es admin asi:
+
+```bash
+public function handle(Request $request, Closure $next): Response
+    {
+        $user = auth('api')->user();
+        if ($user && $user->role === 'admin') {
+            return $next($request);
+        } else {
+            return response()->json(['message' => 'You are not an admin'], 403);
+        }
+    }
+```
+
