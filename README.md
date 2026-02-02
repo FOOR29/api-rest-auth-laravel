@@ -160,16 +160,18 @@ class AuthController extends Controller
         return response()->json(['message' => 'User registered successfully'], 201);
     }
 
-    //Login
+   // Login
     function login(Request $request)
     {
         $validator = validator::make($request->all(), [
             'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:6',
         ]);
+
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
+
         $credentials = $request->only('email', 'password');
 
         try {
@@ -179,6 +181,13 @@ class AuthController extends Controller
         } catch (JWTException $e) {
             return response()->json(['error' => 'Could not create token'], 500);
         }
+
+        return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => config('jwt.ttl') * 60  // 60 min durara el token
+        ], 200);
     }
 
     //Obtener usuario
@@ -236,7 +245,8 @@ se coloca:
     })
 ```
 
-y se importa: 
+y se importa:
+
 ```bash
 use App\Http\Middleware\isAdmin;
 use App\Http\Middleware\isUserAuth;
@@ -272,3 +282,82 @@ Route::middleware([isUserAuth::class])->group(function () {
 });
 ```
 
+y se corre el proyecto y se habre es una extebnsion para ver la base de datos.
+
+tambien con postman o Flashpost se testea la api ejemplo:
+
+post: http://127.0.0.1:8000/api/register al dar en send deberia de mostrarte que los campos son necesarios.
+
+para crear un usuario se envia en formrato json de la siguinete manera:
+
+```bash
+{
+    "name": "Forlan Ordoñez",
+    "role": "admin",
+    "email": "foor@gmail.com",
+    "password": "123456789"
+}
+```
+
+cuando se envie te pedira confimar la contraseña ya que se agrego un campo para ello, entonces la manera correcta es:
+
+```bash
+{
+    "name": "Forlan Ordoñez",
+    "role": "admin",
+    "email": "foor@gmail.com",
+    "password": "123456789",
+    "password_confirmation": "123456789"
+}
+```
+
+y se creara el usuario corerctamenta en la base de datos.
+
+una ves creada se puede loguar como:
+
+POST http://127.0.0.1:8000/api/login
+
+```bash
+{
+    "email": "foor@gmail.com",
+    "password": "123456789"
+}
+```
+
+y te dara un token de 60min asi:
+
+```bash
+"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvYXBpL2xvZ2luIiwiaWF0IjoxNzcwMDY0MjgxLCJleHAiOjE3NzAwNjc4ODEsIm5iZiI6MTc3MDA2NDI4MSwianRpIjoiSEtXSWhsSTl6NTZEWkFCVSIsInN1YiI6IjEiLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.JCh4pzcwdDfU9pNuU_qmgou7loP7OXsRfHRXM88hGh4"
+```
+
+ese token lo copiaras y abriras otra ventanas de test y colocaras:
+
+GET http://127.0.0.1:8000/api/me
+
+te dira que se necesita autheticacion, ahi es donde usas el token como, te dirijes ah Auth o Authorizacion dentro del programa test de las api, entinces selecionas auth luego bearer Toekn y pegas el token alli y le das en send, y te deberia mostrar los dtaos del usuario logueado:
+
+```bash
+{
+7 items
+"id":1
+"name":"Forlan Ordoñez"
+"role":"admin"
+"email":"foor@gmail.com"
+"email_verified_at":NULL
+"created_at":"2026-02-02T20:11:42.000000Z"
+"updated_at":"2026-02-02T20:11:42.000000Z"
+}
+```
+
+para desloguarse lo mismo, se dirige a la ruta
+
+POST http://127.0.0.1:8000/api/logout
+
+se pega el mismo token en auth y se envia y deberia salir:
+
+```bash
+{
+1 items
+"message":"User logged out successfully"...
+}
+```

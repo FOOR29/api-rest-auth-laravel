@@ -12,12 +12,12 @@ use Tymon\JWTAuth\JWT;
 
 class AuthController extends Controller
 {
-    //Registro
+    // Registro
     public function register(Request $request)
     {
         $validator = validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'role' => 'required|string|in:admin,user', // se agrega validacion para el rol
+            'role' => 'required|string|in:admin,user',  // se agrega validacion para el rol
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
         ]);
@@ -26,23 +26,25 @@ class AuthController extends Controller
         }
         User::create([
             'name' => $request->get('name'),
-            'role' => $request->get('role'), // se guarda el rol
+            'role' => $request->get('role'),  // se guarda el rol
             'email' => $request->get('email'),
             'password' => bcrypt($request->get('password')),
         ]);
         return response()->json(['message' => 'User registered successfully'], 201);
     }
 
-    //Login
+    // Login
     function login(Request $request)
     {
         $validator = validator::make($request->all(), [
             'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:6',
         ]);
+
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
+
         $credentials = $request->only('email', 'password');
 
         try {
@@ -52,16 +54,25 @@ class AuthController extends Controller
         } catch (JWTException $e) {
             return response()->json(['error' => 'Could not create token'], 500);
         }
+
+        return response()->json([
+            'message' => 'Login successful',
+            'token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => config('jwt.ttl') * 60  // 60 min durara el token
+        ], 200);
     }
 
-    //Obtener usuario
-    public function getUser(){
+    // Obtener usuario
+    public function getUser()
+    {
         $user = Auth::user();
         return response()->json($user, 200);
     }
 
-    //Logout
-    public function logout(){
+    // Logout
+    public function logout()
+    {
         JWTAuth::invalidate(JWTAuth::getToken());
         return response()->json(['message' => 'User logged out successfully'], 200);
     }
