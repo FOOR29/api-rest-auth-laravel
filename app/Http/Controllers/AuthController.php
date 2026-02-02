@@ -11,6 +11,7 @@ use Tymon\JWTAuth\JWT;
 
 class AuthController extends Controller
 {
+    //Registro
     public function register(Request $request)
     {
         $validator = validator::make($request->all(), [
@@ -31,6 +32,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'User registered successfully'], 201);
     }
 
+    //Login
     function login(Request $request)
     {
         $validator = validator::make($request->all(), [
@@ -49,5 +51,17 @@ class AuthController extends Controller
         } catch (JWTException $e) {
             return response()->json(['error' => 'Could not create token'], 500);
         }
+    }
+
+    //Obtener usuario
+    public function getUser(){
+        $user = Auth::user();
+        return response()->json($user, 200);
+    }
+
+    //Logout
+    public function logout(){
+        JWTAuth::invalidate(JWTAuth::getToken());
+        return response()->json(['message' => 'User logged out successfully'], 200);
     }
 }
