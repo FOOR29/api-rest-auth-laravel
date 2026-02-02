@@ -225,3 +225,50 @@ public function handle(Request $request, Closure $next): Response
     }
 ```
 
+luego en la carpeta /boostrad/app.php:
+
+se coloca:
+
+```bash
+ ->withMiddleware(function (Middleware $middleware): void {
+        isUserAuth::class;
+        isAdmin::class;
+    })
+```
+
+y se importa: 
+```bash
+use App\Http\Middleware\isAdmin;
+use App\Http\Middleware\isUserAuth;
+```
+
+luego se crean las rutas publicas en route/api.php:
+
+```bash
+// Rutas publicas
+Route::post('register', [AuthController::class, 'register']);
+Route::post('login', [AuthController::class, 'login']);
+
+// Rutas privadas
+Route::middleware([isUserAuth::class])->group(function () {
+    // la rutas privadas por lo general necesitan estas logueados
+    Route::controller(AuthController::class)->group(function () {
+        Route::post('logout', 'logout');
+        Route::get('me', 'getUser');
+    });
+
+    Route::get('products', [ProductController::class, 'index']);
+
+    Route::middleware([isAdmin::class])->group(function () {
+        Route::controller(ProductController::class)->group(function () {
+            Route::get('products', 'index');
+            Route::post('products', 'store');
+            Route::get('/products/{id}', 'show');
+            Route::put('/products/{id}', 'update');
+            Route::patch('/products/{id}', 'updatePartial');
+            Route::delete('/products/{id}', 'destroy');
+        });
+    });
+});
+```
+
