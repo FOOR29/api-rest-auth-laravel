@@ -492,6 +492,61 @@ El usuario se creará correctamente en la base de datos.
 
 Después del logout, el token será invalidado y no podrá utilizarse nuevamente.
 
+### 5 crear un producto
+
+**Endpoint:** `POST http://127.0.0.1:8000/api/products`
+
+para crear un producto se necesita authenticacion.
+
+#### Configuración de autenticación:
+
+se imicia seccion y se copia el token de la misma con el endpoint products.
+
+**Respuesta esperada:**
+
+```json
+{
+3 items
+"message":"Error de validación"
+"errors"
+:
+{
+3 items
+"name"
+:
+[
+1 items
+0:"The name field is required."
+]
+"description"
+:
+[
+1 items
+0:"The description field is requ...
+]
+"price"
+:
+[
+1 items
+0:"The price field is required."...
+]
+}
+"status":400
+}
+```
+
+una vez visto ese mensjaje se procede a crear un producto:
+
+```bash
+{
+    "name": "vino 300mil años",
+    "description": "el vino que tomo cleopatara y tal",
+    "price": "28.000"
+}
+```
+
+> **Importante** si eres user no puedes hacer el crud, si deseas hacerlo debes de modicarlo para ello.
+
 ---
 
 ## 📝 Notas Adicionales
