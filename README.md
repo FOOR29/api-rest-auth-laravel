@@ -1,26 +1,58 @@
-el primer comado que se uso es:
+# API REST con Laravel 12 - CRUD y Autenticación por Roles
+
+Documentación completa de la implementación de una API RESTful en Laravel 12 con sistema de autenticación JWT y control de acceso basado en roles (admin/user).
+
+---
+
+## 📋 Tabla de Contenidos
+
+- [Instalación de JWT Auth](#instalación-de-jwt-auth)
+- [Configuración del Modelo User](#configuración-del-modelo-user)
+- [Migración de Base de Datos](#migración-de-base-de-datos)
+- [Creación de Middlewares](#creación-de-middlewares)
+- [Creación de Modelos y Controladores](#creación-de-modelos-y-controladores)
+- [Controlador de Autenticación](#controlador-de-autenticación)
+- [Configuración de Middlewares](#configuración-de-middlewares)
+- [Definición de Rutas](#definición-de-rutas)
+- [Pruebas con Postman/FlashPost](#pruebas-con-postmanflashpost)
+
+---
+
+## 🔧 Instalación de JWT Auth
+
+### Paso 1: Instalar el paquete JWT Auth
+
+Ejecuta el siguiente comando para instalar la dependencia de autenticación JWT:
 
 ```bash
 composer require tymon/jwt-auth
 ```
 
-luego el siguinte comando:
+### Paso 2: Publicar la configuración
+
+Publica el archivo de configuración del proveedor de servicios:
 
 ```bash
 php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider"
 ```
 
-por ultimo se ejecuta el siguinete codigpo:
+### Paso 3: Generar la clave secreta JWT
 
-```php
+Genera la clave secreta que se utilizará para firmar los tokens:
+
+```bash
 php artisan jwt:secret
 ```
 
-estos comandos vienen de la documentacion oficial de: https://jwt-auth.readthedocs.io/en/develop/laravel-installation/
+> **Nota:** Estos comandos provienen de la [documentación oficial de JWT Auth](https://jwt-auth.readthedocs.io/en/develop/laravel-installation/)
 
-y el archivo model/user.php se deja asi:
+---
 
-```bash
+## 👤 Configuración del Modelo User
+
+Modifica el archivo `app/Models/User.php` para implementar la interfaz `JWTSubject`:
+
+```php
 <?php
 
 namespace App\Models;
@@ -82,85 +114,117 @@ class User extends Authenticatable implements JWTSubject
 }
 ```
 
-luego se crea el dentro de la migration user, se coloca la tabla de role:
+---
+
+## 🗄️ Migración de Base de Datos
+
+### Agregar el campo `role` a la tabla users
+
+En la migración de usuarios (`database/migrations/xxxx_create_users_table.php`), agrega el campo `role`:
 
 ```php
 public function up(): void
-    {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('role', 20);
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+{
+    Schema::create('users', function (Blueprint $table) {
+        $table->id();
+        $table->string('name');
+        $table->string('role', 20);
+        $table->string('email')->unique();
+        $table->timestamp('email_verified_at')->nullable();
+        $table->string('password');
+        $table->rememberToken();
+        $table->timestamps();
+    });
+}
 ```
 
-y se agrega en models/user.php:
+### Actualizar el modelo User
 
-```bash
+Agrega el campo `role` al array `$fillable` en `app/Models/User.php`:
+
+```php
 protected $fillable = [
-        'name',
-        'role',
-        'email',
-        'password',
-    ];
+    'name',
+    'role',
+    'email',
+    'password',
+];
 ```
 
-luego se crean dos middlewares:
+---
+
+## 🛡️ Creación de Middlewares
+
+### Middleware para usuarios autenticados
+
+Crea un middleware para verificar que el usuario esté autenticado:
 
 ```bash
 php artisan make:middleware isUserAuth
 ```
 
+### Middleware para administradores
+
+Crea un middleware para verificar que el usuario sea administrador:
+
 ```bash
 php artisan make:middleware isAdmin
 ```
 
-luego se crea un modelo como:
+---
+
+## 📦 Creación de Modelos y Controladores
+
+### Crear el modelo Product con migración y controlador
+
+Ejecuta el siguiente comando para crear el modelo, migración y controlador en un solo paso:
 
 ```bash
 php artisan make:model Product -mc
 ```
 
-> con eset comando se crea tanto el modelo, la migracion y el controlador.
+> **Nota:** Con este comando se crean automáticamente el modelo, la migración y el controlador.
 
-luego se crea otro controlador:
+### Crear el controlador de autenticación
 
 ```bash
 php artisan make:controller AuthController
 ```
 
-y se crea toda la logica de esde controlador:
+---
 
-```bash
+## 🔐 Controlador de Autenticación
+
+Implementa toda la lógica de autenticación en `app/Http/Controllers/AuthController.php`:
+
+```php
 class AuthController extends Controller
 {
-    //Registro
+    // Registro
     public function register(Request $request)
     {
         $validator = validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'role' => 'required|string|in:admin,user', // se agrega validacion para el rol
+            'role' => 'required|string|in:admin,user', // Validación para el rol
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
         ]);
+
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
+
         User::create([
             'name' => $request->get('name'),
-            'role' => $request->get('role'), // se guarda el rol
+            'role' => $request->get('role'), // Se guarda el rol
             'email' => $request->get('email'),
             'password' => bcrypt($request->get('password')),
         ]);
+
         return response()->json(['message' => 'User registered successfully'], 201);
     }
 
-   // Login
+    // Login
     function login(Request $request)
     {
         $validator = validator::make($request->all(), [
@@ -186,17 +250,17 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => config('jwt.ttl') * 60  // 60 min durara el token
+            'expires_in' => config('jwt.ttl') * 60  // El token durará 60 minutos
         ], 200);
     }
 
-    //Obtener usuario
+    // Obtener usuario autenticado
     public function getUser(){
         $user = Auth::user();
         return response()->json($user, 200);
     }
 
-    //Logout
+    // Logout
     public function logout(){
         JWTAuth::invalidate(JWTAuth::getToken());
         return response()->json(['message' => 'User logged out successfully'], 200);
@@ -204,64 +268,75 @@ class AuthController extends Controller
 }
 ```
 
-luego se modica el middleware de /app/http/middleware/isUserAuth.php asi.
+---
 
-y se aplica lo siguiente:
+## ⚙️ Configuración de Middlewares
 
-```bash
+### Middleware isUserAuth
+
+Modifica el archivo `app/Http/Middleware/isUserAuth.php`:
+
+```php
 public function handle(Request $request, Closure $next): Response
-    {
-        //si un usuario esta autenticado se aceptan las peticiones si no se rechazan
-        if (auth('api')->user()) {
-            return $next($request);
-        } else {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+{
+    // Si un usuario está autenticado se aceptan las peticiones, si no se rechazan
+    if (auth('api')->user()) {
+        return $next($request);
+    } else {
+        return response()->json(['message' => 'Unauthorized'], 401);
     }
+}
 ```
 
-y en isUserAdmin se valida si el usuario es admin asi:
+### Middleware isAdmin
 
-```bash
+Modifica el archivo `app/Http/Middleware/isAdmin.php` para validar si el usuario es administrador:
+
+```php
 public function handle(Request $request, Closure $next): Response
-    {
-        $user = auth('api')->user();
-        if ($user && $user->role === 'admin') {
-            return $next($request);
-        } else {
-            return response()->json(['message' => 'You are not an admin'], 403);
-        }
+{
+    $user = auth('api')->user();
+
+    if ($user && $user->role === 'admin') {
+        return $next($request);
+    } else {
+        return response()->json(['message' => 'You are not an admin'], 403);
     }
+}
 ```
 
-luego en la carpeta /boostrad/app.php:
+### Registrar middlewares en bootstrap/app.php
 
-se coloca:
+En el archivo `bootstrap/app.php`, registra los middlewares:
 
-```bash
- ->withMiddleware(function (Middleware $middleware): void {
-        isUserAuth::class;
-        isAdmin::class;
-    })
+```php
+->withMiddleware(function (Middleware $middleware): void {
+    isUserAuth::class;
+    isAdmin::class;
+})
 ```
 
-y se importa:
+Y agrega las importaciones necesarias:
 
-```bash
+```php
 use App\Http\Middleware\isAdmin;
 use App\Http\Middleware\isUserAuth;
 ```
 
-luego se crean las rutas publicas en route/api.php:
+---
 
-```bash
-// Rutas publicas
+## 🛣️ Definición de Rutas
+
+Configura las rutas públicas y privadas en `routes/api.php`:
+
+```php
+// Rutas públicas
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 
 // Rutas privadas
 Route::middleware([isUserAuth::class])->group(function () {
-    // la rutas privadas por lo general necesitan estas logueados
+    // Las rutas privadas requieren que el usuario esté autenticado
     Route::controller(AuthController::class)->group(function () {
         Route::post('logout', 'logout');
         Route::get('me', 'getUser');
@@ -269,6 +344,7 @@ Route::middleware([isUserAuth::class])->group(function () {
 
     Route::get('products', [ProductController::class, 'index']);
 
+    // Rutas exclusivas para administradores
     Route::middleware([isAdmin::class])->group(function () {
         Route::controller(ProductController::class)->group(function () {
             Route::get('products', 'index');
@@ -282,15 +358,29 @@ Route::middleware([isUserAuth::class])->group(function () {
 });
 ```
 
-y se corre el proyecto y se habre es una extebnsion para ver la base de datos.
+---
 
-tambien con postman o Flashpost se testea la api ejemplo:
+## 🧪 Pruebas con Postman/FlashPost
 
-post: http://127.0.0.1:8000/api/register al dar en send deberia de mostrarte que los campos son necesarios.
+### Configuración inicial
 
-para crear un usuario se envia en formrato json de la siguinete manera:
+1. Ejecuta el proyecto Laravel
+2. Abre tu cliente de base de datos preferido para visualizar los registros
+3. Utiliza Postman o FlashPost para probar la API
 
-```bash
+---
+
+### 1️⃣ Registro de Usuario
+
+**Endpoint:** `POST http://127.0.0.1:8000/api/register`
+
+#### Primera prueba (validación de campos)
+
+Al enviar la petición sin datos, deberías recibir un error indicando que los campos son obligatorios.
+
+#### Intento de registro sin confirmación de contraseña
+
+```json
 {
     "name": "Forlan Ordoñez",
     "role": "admin",
@@ -299,9 +389,11 @@ para crear un usuario se envia en formrato json de la siguinete manera:
 }
 ```
 
-cuando se envie te pedira confimar la contraseña ya que se agrego un campo para ello, entonces la manera correcta es:
+Este envío solicitará la confirmación de contraseña.
 
-```bash
+#### Registro correcto
+
+```json
 {
     "name": "Forlan Ordoñez",
     "role": "admin",
@@ -311,53 +403,111 @@ cuando se envie te pedira confimar la contraseña ya que se agrego un campo para
 }
 ```
 
-y se creara el usuario corerctamenta en la base de datos.
+**Respuesta esperada:**
 
-una ves creada se puede loguar como:
+```json
+{
+    "message": "User registered successfully"
+}
+```
 
-POST http://127.0.0.1:8000/api/login
+El usuario se creará correctamente en la base de datos.
 
-```bash
+---
+
+### 2️⃣ Inicio de Sesión (Login)
+
+**Endpoint:** `POST http://127.0.0.1:8000/api/login`
+
+**Body (JSON):**
+
+```json
 {
     "email": "foor@gmail.com",
     "password": "123456789"
 }
 ```
 
-y te dara un token de 60min asi:
+**Respuesta esperada:**
 
-```bash
-"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvYXBpL2xvZ2luIiwiaWF0IjoxNzcwMDY0MjgxLCJleHAiOjE3NzAwNjc4ODEsIm5iZiI6MTc3MDA2NDI4MSwianRpIjoiSEtXSWhsSTl6NTZEWkFCVSIsInN1YiI6IjEiLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.JCh4pzcwdDfU9pNuU_qmgou7loP7OXsRfHRXM88hGh4"
-```
-
-ese token lo copiaras y abriras otra ventanas de test y colocaras:
-
-GET http://127.0.0.1:8000/api/me
-
-te dira que se necesita autheticacion, ahi es donde usas el token como, te dirijes ah Auth o Authorizacion dentro del programa test de las api, entinces selecionas auth luego bearer Toekn y pegas el token alli y le das en send, y te deberia mostrar los dtaos del usuario logueado:
-
-```bash
+```json
 {
-7 items
-"id":1
-"name":"Forlan Ordoñez"
-"role":"admin"
-"email":"foor@gmail.com"
-"email_verified_at":NULL
-"created_at":"2026-02-02T20:11:42.000000Z"
-"updated_at":"2026-02-02T20:11:42.000000Z"
+    "message": "Login successful",
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvYXBpL2xvZ2luIiwiaWF0IjoxNzcwMDY0MjgxLCJleHAiOjE3NzAwNjc4ODEsIm5iZiI6MTc3MDA2NDI4MSwianRpIjoiSEtXSWhsSTl6NTZEWkFCVSIsInN1YiI6IjEiLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.JCh4pzcwdDfU9pNuU_qmgou7loP7OXsRfHRXM88hGh4",
+    "token_type": "bearer",
+    "expires_in": 3600
 }
 ```
 
-para desloguarse lo mismo, se dirige a la ruta
+> **Importante:** Copia el token generado, ya que lo necesitarás para las siguientes peticiones autenticadas. El token tiene una duración de 60 minutos.
 
-POST http://127.0.0.1:8000/api/logout
+---
 
-se pega el mismo token en auth y se envia y deberia salir:
+### 3️⃣ Obtener Datos del Usuario Autenticado
 
-```bash
+**Endpoint:** `GET http://127.0.0.1:8000/api/me`
+
+#### Configuración de autenticación:
+
+1. Abre una nueva pestaña en Postman/FlashPost
+2. Ve a la sección **Auth** o **Authorization**
+3. Selecciona el tipo **Bearer Token**
+4. Pega el token obtenido en el login
+5. Envía la petición
+
+**Respuesta esperada:**
+
+```json
 {
-1 items
-"message":"User logged out successfully"...
+    "id": 1,
+    "name": "Forlan Ordoñez",
+    "role": "admin",
+    "email": "foor@gmail.com",
+    "email_verified_at": null,
+    "created_at": "2026-02-02T20:11:42.000000Z",
+    "updated_at": "2026-02-02T20:11:42.000000Z"
 }
 ```
+
+---
+
+### 4️⃣ Cerrar Sesión (Logout)
+
+**Endpoint:** `POST http://127.0.0.1:8000/api/logout`
+
+#### Configuración de autenticación:
+
+1. Ve a la sección **Auth** o **Authorization**
+2. Selecciona el tipo **Bearer Token**
+3. Pega el mismo token utilizado anteriormente
+4. Envía la petición
+
+**Respuesta esperada:**
+
+```json
+{
+    "message": "User logged out successfully"
+}
+```
+
+Después del logout, el token será invalidado y no podrá utilizarse nuevamente.
+
+---
+
+## 📝 Notas Adicionales
+
+- Todos los endpoints privados requieren el token de autenticación en el header `Authorization: Bearer {token}`
+- Los usuarios con rol `admin` tienen acceso completo al CRUD de productos
+- Los usuarios con rol `user` solo pueden listar productos
+- La duración del token es de 60 minutos (configurable en `config/jwt.php`)
+
+---
+
+## 🔗 Referencias
+
+- [Documentación oficial de JWT Auth](https://jwt-auth.readthedocs.io/en/develop/laravel-installation/)
+- [Laravel 12 Documentation](https://laravel.com/docs)
+
+---
+
+**Desarrollado con ❤️ usando Laravel 12**
